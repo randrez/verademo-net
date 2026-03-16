@@ -4,8 +4,7 @@ on:
   push:
     branches:
       - feature/*
-      - develop
-      - main
+
   pull_request:
     branches:
       - develop
@@ -90,10 +89,22 @@ jobs:
     if: |
       startsWith(github.ref_name, 'feature/') ||
       (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/'))
-    uses: ./.github/workflows/veracode-sand-box-feature-pr-develop.yml
+    uses: ./.github/workflows/veracode-sand-box.yml
     with:
-      VERACODE_APP_PROFILE_NAME: 'verademo-net'
-      VERACODE_SANDBOX_NAME: 'feature-pr-develop-sandbox'
+      veracode_app_profile_name: 'verademo-net'
+      veracode_sandbox_name: 'feature-pr-develop-sandbox'
+      create_profile: true
+      create_sandbox: true
+
+  veracode-sandbox-feature:
+    needs: build
+    if: startsWith(github.ref_name, 'feature/')
+    uses: ./.github/workflows/veracode-sand-box.yml
+    with:
+      veracode_app_profile_name: 'verademo-net'
+      veracode_sandbox_name: 'feature-sandbox'
+      create_profile: true
+      create_sandbox: true
 
   veracode-iac-scan:
     needs: build
@@ -117,7 +128,9 @@ jobs:
 
   veracode-policy-scan:
     needs: build
-    if: github.ref_name == 'main'
+    if: |
+      startsWith(github.ref_name, 'develop') ||
+      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'develop'))
     uses: ./.github/workflows/veracode-policy-scan.yml
     with:
       veracode_app_profile_name: 'verademo-net'
