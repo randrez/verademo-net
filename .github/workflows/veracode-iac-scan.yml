@@ -34,23 +34,20 @@ jobs:
             echo "Using directory: ${{ inputs.scan_source }}"
           fi
 
+      - name: Install Veracode CLI
+        run: |
+          curl -fsS https://tools.veracode.com/veracode-cli/install | sh
+
       - name: Run Veracode scan
-        uses: veracode/container_iac_secrets_scanning@v1.0.1
-        with:
-          vid: ${{ secrets.VERACODE_API_ID }}
-          vkey: ${{ secrets.VERACODE_API_KEY }}
-          command: scan
-          type: ${{ inputs.scan_type }}
-          source: ${{ inputs.scan_source }}
-          format: ${{ inputs.format_result }}
-          debug: true
-          fail_build: ${{ inputs.fail_build }}
-        env:
-          DISABLE_ARTIFACT: true
+        run: |
+          ./veracode-cli/veracode scan \
+            --source ${{ inputs.scan_source }} \
+            --type ${{ inputs.scan_type }} \
+            --format ${{ inputs.format_result }} \
+            --output results.txt
 
       - name: Rename scan results to safe artifact names
         run: |
-          # Renombrar todos los resultados de Veracode a nombres seguros para GitHub
           for f in results.* sbom_*; do
             if [ -f "$f" ]; then
               mv "$f" "veracode_iac_${f}"
