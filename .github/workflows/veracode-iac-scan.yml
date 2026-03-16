@@ -34,9 +34,10 @@ jobs:
             echo "Using directory: ${{ inputs.scan_source }}"
           fi
 
-      - name: Install Veracode CLI
+      - name: Install Veracode CLI in workspace
         run: |
-          curl -fsS https://tools.veracode.com/veracode-cli/install | sh
+          mkdir -p veracode-cli
+          curl -fsS https://tools.veracode.com/veracode-cli/install | sh -s -- -d ./veracode-cli
 
       - name: Run Veracode scan
         run: |
@@ -50,7 +51,9 @@ jobs:
         run: |
           for f in results.* sbom_*; do
             if [ -f "$f" ]; then
-              mv "$f" "veracode_iac_${f}"
+              # Reemplaza espacios o caracteres especiales
+              safe_name=$(echo "$f" | tr '[:upper:] ' '[:lower:]_' | tr -cd '[:alnum:]_.')
+              mv "$f" "veracode_iac_${safe_name}"
             fi
           done
 
