@@ -40,7 +40,8 @@ jobs:
             exit 1
           fi
           cd veracode-upload
-          zip -r ../app.zip .
+          # Filtrar solo archivos .dll y comprimirlos
+          find . -name "*.dll" -print | zip -r ../app.zip -@
           cd ..
           ls -lh app.zip
 
