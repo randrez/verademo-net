@@ -59,9 +59,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: |
-      startsWith(github.ref_name, 'feature/') ||
-      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/'))
-
+      github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
     permissions:
       contents: read
       packages: write
