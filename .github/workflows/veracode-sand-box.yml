@@ -17,6 +17,10 @@ on:
         required: false
         type: boolean
         default: true
+      scan_timeout:
+        required: false
+        type: number
+        default: 1200
 
 jobs:
   sandbox-scan:
@@ -41,6 +45,7 @@ jobs:
           echo "Artifact detected: $artifact"
           echo "artifact_path=$artifact" >> $GITHUB_OUTPUT
 
+
       - name: Sandbox Scan en Veracode
         uses: veracode/veracode-uploadandscan-action@0.2.11
         with:
@@ -51,6 +56,6 @@ jobs:
           vkey: ${{ secrets.VERACODE_API_KEY}}
           sandboxname: ${{ inputs.veracode_sandbox_name }}
           filepath: ${{ steps.detect.outputs.artifact_path }}
-          scantimeout: 1200
+          scantimeout: ${{ inputs.scan_timeout }}
           version: '${{ github.run_id }}'
           deleteincompletescan: 2

@@ -78,11 +78,10 @@ jobs:
       - name: List images
         run: docker images
 
-  veracode-sandbox-feature-pr-develop:
+  veracode-pipeline-scan:
     needs: build
-    if: |
-      github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
-    uses: ./.github/workflows/veracode-sand-box.yml
+    if: startsWith(github.ref_name, 'feature/')
+    uses: ./.github/workflows/veracode-pipeline-scan.yml
     secrets: inherit
     permissions:
       contents: read
@@ -90,10 +89,11 @@ jobs:
       issues: write
       security-events: write
     with:
-      veracode_app_profile_name: 'verademo-net'
-      veracode_sandbox_name: 'feature-pr-develop-sandbox'
-      create_profile: true
-      create_sandbox: true
+      veracode_policy_name: 'Veracode Recommended High'
+      json_output: true
+      output_file: veracode-results.json
+      fail_build: true
+      verbose: true
 
   veracode-sandbox-feature:
     needs: build
@@ -131,6 +131,23 @@ jobs:
       scan_type: image
       scan_source: ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }}
       format_result: table
+
+  veracode-sandbox-feature-pr-develop:
+    needs: build
+    if: |
+      github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
+    uses: ./.github/workflows/veracode-sand-box.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+      security-events: write
+    with:
+      veracode_app_profile_name: 'verademo-net'
+      veracode_sandbox_name: 'feature-pr-develop-sandbox'
+      create_profile: true
+      create_sandbox: true
 
   veracode-policy-scan:
     needs: build
