@@ -30,7 +30,7 @@ on:
         default: true
         
 jobs:
-  sandbox-scan:
+  pipeline-scan:
     runs-on: ubuntu-latest
     steps:
 

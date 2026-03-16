@@ -19,7 +19,7 @@ on:
         default: true
 
 jobs:
-  veracode-scan:
+  iac-scan:
     runs-on: ubuntu-latest
 
     steps:
@@ -46,17 +46,17 @@ jobs:
           debug: true
           fail_build: ${{ inputs.fail_build }}
 
-
-      - name: Rename scan result to safe artifact name
+      - name: Rename scan results to safe artifact names
         run: |
-            if [ -f results.json ]; then
-            mv results.json veracode_iac_scan.json
-            elif [ -f results.txt ]; then
-            mv results.txt veracode_iac_scan.txt
+          # Renombrar todos los resultados de Veracode a nombres seguros para GitHub
+          for f in results.* sbom_*; do
+            if [ -f "$f" ]; then
+              mv "$f" "veracode_iac_${f}"
             fi
+          done
 
       - name: Upload scan results
         uses: actions/upload-artifact@v4
         with:
           name: veracode-iac-scan-results
-          path: veracode_iac_scan.json
+          path: veracode_iac_*

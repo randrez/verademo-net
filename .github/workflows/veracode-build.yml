@@ -89,7 +89,7 @@ jobs:
       issues: write
       security-events: write
     with:
-      veracode_policy_name: 'Veracode Recommended High'
+      veracode_policy_name: 'Veracode Recommended Very High + SCA'
       json_output: true
       output_file: veracode-results.json
       fail_build: true
@@ -110,6 +110,7 @@ jobs:
       veracode_sandbox_name: 'feature-sandbox'
       create_profile: true
       create_sandbox: true
+      scan_timeout: 0
 
   veracode-iac-scan:
     needs: build
@@ -132,7 +133,7 @@ jobs:
       scan_source: ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }}
       format_result: table
 
-  veracode-sandbox-feature-pr-develop:
+  veracode-sandbox-develop:
     needs: build
     if: |
       github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
@@ -145,7 +146,7 @@ jobs:
       security-events: write
     with:
       veracode_app_profile_name: 'verademo-net'
-      veracode_sandbox_name: 'feature-pr-develop-sandbox'
+      veracode_sandbox_name: 'feature-develop-sandbox'
       create_profile: true
       create_sandbox: true
 
