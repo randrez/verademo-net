@@ -90,6 +90,11 @@ jobs:
       startsWith(github.ref_name, 'feature/') ||
       (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/'))
     uses: ./.github/workflows/veracode-sand-box.yml
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+      security-events: write
     with:
       veracode_app_profile_name: 'verademo-net'
       veracode_sandbox_name: 'feature-pr-develop-sandbox'
@@ -100,6 +105,11 @@ jobs:
     needs: build
     if: startsWith(github.ref_name, 'feature/')
     uses: ./.github/workflows/veracode-sand-box.yml
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+      security-events: write
     with:
       veracode_app_profile_name: 'verademo-net'
       veracode_sandbox_name: 'feature-sandbox'

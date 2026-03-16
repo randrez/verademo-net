@@ -1,11 +1,5 @@
 name: Veracode sandbox Scan feature pr develop
 
-permissions:
-  contents: read
-  security-events: write
-  actions: read
-  issues: write
-
 on:
   workflow_call:
     inputs:
