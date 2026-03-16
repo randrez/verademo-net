@@ -35,6 +35,9 @@ jobs:
           fi
 
       - name: Install and Run Veracode CLI
+        env:
+          VERACODE_API_ID: ${{ secrets.VERACODE_API_ID }}
+          VERACODE_API_KEY: ${{ secrets.VERACODE_API_KEY }}
         run: |
           echo "=== DEBUG: Current directory and environment ==="
           echo "PWD: $PWD"
@@ -42,7 +45,7 @@ jobs:
           pwd
           ls -la
           echo "=== END DEBUG ==="
-        
+          
           # Install Veracode CLI directly (downloads and runs in one step)
           # The CLI will be installed to the current directory
           curl -fsS https://tools.veracode.com/veracode-cli/install | sh
@@ -61,6 +64,10 @@ jobs:
           if [ -n "$VERACODE_CLI" ]; then
             echo "Found veracode binary at: $VERACODE_CLI"
             ls -la "$VERACODE_CLI"
+            
+            # Configure Veracode CLI with API credentials
+            echo "=== Configuring Veracode CLI with credentials ==="
+            "$VERACODE_CLI" configure --vid "$VERACODE_API_ID" --vkey "$VERACODE_API_KEY"
             
             # Run the scan using the found binary
             echo "=== Running Veracode scan ==="
