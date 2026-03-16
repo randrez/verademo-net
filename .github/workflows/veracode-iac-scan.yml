@@ -37,11 +37,29 @@ jobs:
       - name: Install Veracode CLI in workspace
         run: |
           mkdir -p veracode-cli
-          curl -fsS https://tools.veracode.com/veracode-cli/install | sh -s -- -d ./veracode-cli
+          # Use absolute path for the -d flag
+          VERACODE_CLI_DIR="$PWD/veracode-cli"
+          echo "Installing to: $VERACODE_CLI_DIR"
+          curl -fsS https://tools.veracode.com/veracode-cli/install | sh -s -- -d "$VERACODE_CLI_DIR"
+          
+          # Debug: List what was installed
+          echo "=== Veracode CLI directory structure ==="
+          find veracode-cli -type f -o -type l 2>/dev/null || echo "No files found in veracode-cli"
+          echo "=== End directory structure ==="
+          
+          # Check if veracode binary exists
+          if [ -f "$VERACODE_CLI_DIR/veracode" ]; then
+            echo "Found veracode binary at: $VERACODE_CLI_DIR/veracode"
+            ls -la "$VERACODE_CLI_DIR/veracode"
+          else
+            echo "WARNING: veracode binary not found at expected location"
+            find veracode-cli -name "veracode*" -type f 2>/dev/null
+          fi
 
       - name: Run Veracode scan
         run: |
-          ./veracode-cli/veracode scan \
+          VERACODE_CLI_DIR="$PWD/veracode-cli"
+          "$VERACODE_CLI_DIR/veracode" scan \
             --source ${{ inputs.scan_source }} \
             --type ${{ inputs.scan_type }} \
             --format ${{ inputs.format_result }} \
