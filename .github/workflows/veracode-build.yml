@@ -11,10 +11,8 @@ on:
       - main
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -98,7 +96,7 @@ jobs:
 
   veracode-sandbox-feature:
     needs: build
-    if: startsWith(github.ref_name, 'feature/')
+    if: startsWith(github.ref_name, 'feature')
     uses: ./.github/workflows/veracode-sand-box.yml
     with:
       veracode_app_profile_name: 'verademo-net'
@@ -108,7 +106,7 @@ jobs:
 
   veracode-iac-scan:
     needs: build
-    if: startsWith(github.ref_name, 'feature/')
+    if: startsWith(github.ref_name, 'feature')
     uses: ./.github/workflows/veracode-iac-scan.yml
     with:
       scan_type: directory
