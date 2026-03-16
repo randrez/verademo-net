@@ -27,26 +27,21 @@ jobs:
       - name: Build and Publish
         run: |
           set -e
-
           echo "🔎 Searching for .csproj..."
           csproj_file=$(find . -name "*.csproj" -print -quit)
-
           if [ -z "$csproj_file" ]; then
             echo "::error::No .csproj file found"
             exit 1
           fi
-
           rm -rf veracode-upload app.zip
-
           dotnet publish "$csproj_file" -c Release -o ./veracode-upload --no-self-contained
-
-          ls -R ./veracode-upload
-
+          if [ -z "$(ls -A ./veracode-upload)" ]; then
+            echo "::error::Publish step did not produce output"
+            exit 1
+          fi
           cd veracode-upload
           zip -r ../app.zip .
           cd ..
-
-          echo "ZIP created successfully"
           ls -lh app.zip
 
       - name: Upload package for log
