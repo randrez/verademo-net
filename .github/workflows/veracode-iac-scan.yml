@@ -34,59 +34,45 @@ jobs:
             echo "Using directory: ${{ inputs.scan_source }}"
           fi
 
-      - name: Install Veracode CLI in workspace
+      - name: Install and Run Veracode CLI
         run: |
           echo "=== DEBUG: Current directory and environment ==="
           echo "PWD: $PWD"
           echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
-          echo "HOME: $HOME"
           pwd
           ls -la
           echo "=== END DEBUG ==="
           
-          # Use GITHUB_WORKSPACE for reliable path, fallback to PWD
-          WORKSPACE_DIR="${GITHUB_WORKSPACE:-$(pwd)}"
-          mkdir -p "$WORKSPACE_DIR/veracode-cli"
+          # Install Veracode CLI directly (downloads and runs in one step)
+          # The CLI will be installed to the current directory
+          curl -fsS https://tools.veracode.com/veracode-cli/install | sh
           
-          # Use absolute path for the -d flag
-          VERACODE_CLI_DIR="$WORKSPACE_DIR/veracode-cli"
-          echo "Installing to: $VERACODE_CLI_DIR"
-          curl -fsS https://tools.veracode.com/veracode-cli/install | sh -s -- -d "$VERACODE_CLI_DIR"
+          # Debug: Check where veracode binary was installed
+          echo "=== Veracode CLI location ==="
+          find . -name "veracode*" -type f -executable 2>/dev/null || find . -name "veracode*" -type f 2>/dev/null
+          echo "=== End Veracode CLI location ==="
           
-          # Debug: List what was installed
-          echo "=== Veracode CLI directory structure ==="
-          find "$WORKSPACE_DIR/veracode-cli" -type f -o -type l 2>/dev/null || echo "No files found in veracode-cli"
-          echo "=== End directory structure ==="
-          
-          # Check if veracode binary exists
-          if [ -f "$VERACODE_CLI_DIR/veracode" ]; then
-            echo "Found veracode binary at: $VERACODE_CLI_DIR/veracode"
-            ls -la "$VERACODE_CLI_DIR/veracode"
-          else
-            echo "WARNING: veracode binary not found at expected location"
-            find "$WORKSPACE_DIR/veracode-cli" -name "veracode*" -type f 2>/dev/null
+          # Find the veracode binary location
+          VERACODE_CLI=$(find . -name "veracode" -type f -executable 2>/dev/null | head -n 1)
+          if [ -z "$VERACODE_CLI" ]; then
+            VERACODE_CLI=$(find . -name "veracode" -type f 2>/dev/null | head -n 1)
           fi
-
-      - name: Run Veracode scan
-        run: |
-          echo "=== DEBUG: Running scan step ==="
-          echo "PWD: $PWD"
-          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
-          pwd
-          ls -la
-          echo "=== Listing veracode-cli contents ==="
-          ls -la "${GITHUB_WORKSPACE:-$(pwd)}/veracode-cli/" 2>/dev/null || echo "veracode-cli directory not found"
-          echo "=== END DEBUG ==="
           
-          # Use GITHUB_WORKSPACE for reliable path
-          WORKSPACE_DIR="${GITHUB_WORKSPACE:-$(pwd)}"
-          VERACODE_CLI_DIR="$WORKSPACE_DIR/veracode-cli"
-          echo "Using VERACODE_CLI_DIR: $VERACODE_CLI_DIR"
-          "$VERACODE_CLI_DIR/veracode" scan \
-            --source ${{ inputs.scan_source }} \
-            --type ${{ inputs.scan_type }} \
-            --format ${{ inputs.format_result }} \
-            --output results.txt
+          if [ -n "$VERACODE_CLI" ]; then
+            echo "Found veracode binary at: $VERACODE_CLI"
+            ls -la "$VERACODE_CLI"
+            
+            # Run the scan using the found binary
+            echo "=== Running Veracode scan ==="
+            "$VERACODE_CLI" scan \
+              --source ${{ inputs.scan_source }} \
+              --type ${{ inputs.scan_type }} \
+              --format ${{ inputs.format_result }} \
+              --output results.txt
+          else
+            echo "ERROR: veracode binary not found"
+            exit 1
+          fi
 
       - name: Rename scan results to safe artifact names
         run: |
