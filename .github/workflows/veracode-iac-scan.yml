@@ -45,6 +45,8 @@ jobs:
           format: ${{ inputs.format_result }}
           debug: true
           fail_build: ${{ inputs.fail_build }}
+        env:
+          DISABLE_ARTIFACT: true
 
       - name: Rename scan results to safe artifact names
         run: |

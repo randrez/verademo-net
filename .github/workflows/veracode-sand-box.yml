@@ -17,6 +17,12 @@ on:
         required: false
         type: boolean
         default: true
+      teams:
+        required: false
+        type: string
+      policy_name:
+        required: false
+        type: string
       scan_timeout:
         required: false
         type: number
@@ -58,4 +64,6 @@ jobs:
           filepath: ${{ steps.detect.outputs.artifact_path }}
           scantimeout: ${{ inputs.scan_timeout }}
           version: '${{ github.run_id }}'
+          teams: ${{ inputs.teams }}
+          policy: ${{ inputs.policy_name }}
           deleteincompletescan: 2
