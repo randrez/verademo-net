@@ -1,73 +1,123 @@
 name: veracode-build
 
 on:
-  repository_dispatch:
-    types: [veracode-build]
+  push:
+    branches:
+      - feature/*
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
 
-    
 jobs:
+
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
-
-    - name: Build and Publish
-      run: |
-        set -e
-
-        echo "🔎 Searching for .csproj..."
-        csproj_file=$(find . -name "*.csproj" -print -quit)
-
-        if [ -z "$csproj_file" ]; then
-          echo "::error::No .csproj file found"
-          exit 1
-        fi
-        rm -rf veracode-upload app.zip
-
-        dotnet publish "$csproj_file" -c Release -o ./veracode-upload --no-self-contained
-
-        ls -R ./veracode-upload
-        cd veracode-upload
-        zip -r ../app.zip .
-        cd ..
-
-        if [ ! -f "app.zip" ]; then
-          echo "::error::app.zip was not created"
-          exit 1
-        fi
-
-        echo "ZIP created successfully"
-        ls -lh app.zip
-
-    - name: Upload package for log
-      uses: actions/upload-artifact@v4
-      with:
-        name: veracode-artifact
-        path: app.zip
-
-  register:
-    runs-on: ubuntu-latest
-    name: register
-    needs: build
-    steps:
-      - name: Register build
-        id: register-build
-        uses: veracode/github-actions-integration-helper@v0.1.7
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          action: registerBuild
-          token: ${{ github.event.client_payload.token }}
-          appname: ${{ github.event.client_payload.user_config.profile_name }}
-          source_repository: ${{ github.event.client_payload.repository.full_name }}
-          check_run_id: ${{ github.run_id }}
-          check_run_name: ${{ github.workflow }}
-          head_sha: ${{ github.event.client_payload.sha }}
-          event_type: ${{ github.event.client_payload.event_type }}
-          branch: ${{ github.event.client_payload.user_config.sandbox_scan.branch }}
-          issue_trigger_flow: ${{ github.event.client_payload.user_config.issue_trigger_flow }}
+          dotnet-version: '8.0.x'
+
+      - name: Build and Publish
+        run: |
+          set -e
+
+          echo "🔎 Searching for .csproj..."
+          csproj_file=$(find . -name "*.csproj" -print -quit)
+
+          if [ -z "$csproj_file" ]; then
+            echo "::error::No .csproj file found"
+            exit 1
+          fi
+
+          rm -rf veracode-upload app.zip
+
+          dotnet publish "$csproj_file" -c Release -o ./veracode-upload --no-self-contained
+
+          ls -R ./veracode-upload
+
+          cd veracode-upload
+          zip -r ../app.zip .
+          cd ..
+
+          echo "ZIP created successfully"
+          ls -lh app.zip
+
+      - name: Upload package for log
+        uses: actions/upload-artifact@v4
+        with:
+          name: veracode-artifact
+          path: app.zip
+
+  build-docker-image:
+    needs: build
+    runs-on: ubuntu-latest
+    if: |
+      startsWith(github.ref_name, 'feature/') ||
+      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/'))
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }} .
+
+      - name: Push Docker image
+        run: |
+          docker push ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }}
+
+      - name: List images
+        run: docker images
+
+  veracode-sandbox-feature-pr-develop:
+    needs: build
+    if: |
+      startsWith(github.ref_name, 'feature/') ||
+      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/'))
+    uses: ./.github/workflows/veracode-sand-box-feature-pr-develop.yml
+    with:
+      VERACODE_APP_PROFILE_NAME: 'verademo-net'
+      VERACODE_SANDBOX_NAME: 'feature-pr-develop-sandbox'
+
+  veracode-iac-scan:
+    needs: build
+    if: startsWith(github.ref_name, 'feature/')
+    uses: ./.github/workflows/veracode-iac-scan.yml
+    with:
+      scan_type: directory
+      scan_source: ./
+      format_result: json
+
+  veracode-iac-scan_image:
+    needs: build-docker-image
+    if: |
+      startsWith(github.ref_name, 'feature/') ||
+      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/'))
+    uses: ./.github/workflows/veracode-iac-scan.yml
+    with:
+      scan_type: image
+      scan_source: ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }}
+      format_result: table
+
+  veracode-policy-scan:
+    needs: build
+    if: github.ref_name == 'main'
+    uses: ./.github/workflows/veracode-policy-scan.yml
+    with:
+      veracode_app_profile_name: 'verademo-net'

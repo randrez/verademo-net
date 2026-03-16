@@ -1,0 +1,57 @@
+name: Veracode sandbox Scan feature pr develop
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+  issues: write
+
+on:
+  workflow_call:
+    inputs:
+      veracode_app_profile_name:
+        required: true
+        type: string
+      veracode_sandbox_name:
+        required: true
+        type: string
+      create_profile:
+        required: false
+        type: boolean
+        default: true
+jobs:
+  sandbox-scan:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Downloading artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: veracode-artifact
+
+      - name: Detect artifact for Veracode
+        id: detect
+        run: |
+          artifact=$(find . -type f \( -name "*.zip" -o -name "*.war" -o -name "*.jar" -o -name "*.ear" \) | head -n 1)
+
+          if [ -z "$artifact" ]; then
+            echo "::error::No valid artifact found"
+            exit 1
+          fi
+
+          echo "Artifact detected: $artifact"
+          echo "artifact_path=$artifact" >> $GITHUB_OUTPUT
+
+      - name: Sandbox Scan en Veracode
+        uses: veracode/veracode-uploadandscan-action@0.2.11
+        with:
+          appname:  ${{ inputs.veracode_app_profile_name }}
+          createprofile: ${{ inputs.create_profile }}
+          createsandbox: true
+          vid: ${{ secrets.VERACODE_API_ID }}
+          vkey: ${{ secrets.VERACODE_API_KEY}}
+          sandboxname: ${{ inputs.veracode_sandbox_name }}
+          filepath: ${{ steps.detect.outputs.artifact_path }}
+          scantimeout: 1200
+          version: '${{ github.run_id }}'
+          deleteincompletescan: 2

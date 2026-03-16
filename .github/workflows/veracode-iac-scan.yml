@@ -1,0 +1,46 @@
+name: Veracode IaC / Container Scan
+
+on:
+  workflow_call:
+    inputs:
+      scan_type:
+        required: true
+        type: string
+      scan_source:
+        required: true
+        type: string
+      format_result:
+        required: false
+        type: string
+        default: json
+      fail_build:
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  veracode-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare scan source
+        run: |
+          if [ "${{ inputs.scan_type }}" = "image" ]; then
+            echo "Using image: ${{ inputs.scan_source }}"
+          else
+            echo "Using directory: ${{ inputs.scan_source }}"
+          fi
+
+      - name: Run Veracode scan
+        uses: veracode/container_iac_secrets_scanning@v1.0.1
+        with:
+          vid: ${{ secrets.VID }}
+          vkey: ${{ secrets.VKEY }}
+          command: scan
+          type: ${{ inputs.scan_type }}
+          source: ${{ inputs.scan_source }}
+          format: ${{ inputs.format_result }}
+          fail_build: ${{ inputs.fail_build }}
