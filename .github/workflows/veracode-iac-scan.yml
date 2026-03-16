@@ -36,15 +36,26 @@ jobs:
 
       - name: Install Veracode CLI in workspace
         run: |
-          mkdir -p veracode-cli
+          echo "=== DEBUG: Current directory and environment ==="
+          echo "PWD: $PWD"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          echo "HOME: $HOME"
+          pwd
+          ls -la
+          echo "=== END DEBUG ==="
+          
+          # Use GITHUB_WORKSPACE for reliable path, fallback to PWD
+          WORKSPACE_DIR="${GITHUB_WORKSPACE:-$(pwd)}"
+          mkdir -p "$WORKSPACE_DIR/veracode-cli"
+          
           # Use absolute path for the -d flag
-          VERACODE_CLI_DIR="$PWD/veracode-cli"
+          VERACODE_CLI_DIR="$WORKSPACE_DIR/veracode-cli"
           echo "Installing to: $VERACODE_CLI_DIR"
           curl -fsS https://tools.veracode.com/veracode-cli/install | sh -s -- -d "$VERACODE_CLI_DIR"
           
           # Debug: List what was installed
           echo "=== Veracode CLI directory structure ==="
-          find veracode-cli -type f -o -type l 2>/dev/null || echo "No files found in veracode-cli"
+          find "$WORKSPACE_DIR/veracode-cli" -type f -o -type l 2>/dev/null || echo "No files found in veracode-cli"
           echo "=== End directory structure ==="
           
           # Check if veracode binary exists
@@ -53,12 +64,24 @@ jobs:
             ls -la "$VERACODE_CLI_DIR/veracode"
           else
             echo "WARNING: veracode binary not found at expected location"
-            find veracode-cli -name "veracode*" -type f 2>/dev/null
+            find "$WORKSPACE_DIR/veracode-cli" -name "veracode*" -type f 2>/dev/null
           fi
 
       - name: Run Veracode scan
         run: |
-          VERACODE_CLI_DIR="$PWD/veracode-cli"
+          echo "=== DEBUG: Running scan step ==="
+          echo "PWD: $PWD"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          pwd
+          ls -la
+          echo "=== Listing veracode-cli contents ==="
+          ls -la "${GITHUB_WORKSPACE:-$(pwd)}/veracode-cli/" 2>/dev/null || echo "veracode-cli directory not found"
+          echo "=== END DEBUG ==="
+          
+          # Use GITHUB_WORKSPACE for reliable path
+          WORKSPACE_DIR="${GITHUB_WORKSPACE:-$(pwd)}"
+          VERACODE_CLI_DIR="$WORKSPACE_DIR/veracode-cli"
+          echo "Using VERACODE_CLI_DIR: $VERACODE_CLI_DIR"
           "$VERACODE_CLI_DIR/veracode" scan \
             --source ${{ inputs.scan_source }} \
             --type ${{ inputs.scan_type }} \
