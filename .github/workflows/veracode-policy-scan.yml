@@ -40,3 +40,4 @@ jobs:
           filepath: ${{ steps.detect.outputs.artifact_path }}
           version: '${{ github.run_id }}'
           deleteincompletescan: 2
+          scantimeout: 1200

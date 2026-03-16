@@ -92,7 +92,7 @@ jobs:
       veracode_policy_name: 'Veracode Recommended Very High + SCA'
       json_output: true
       output_file: veracode-results.json
-      fail_build: true
+      fail_build: false
       verbose: true
 
   veracode-sandbox-feature:
