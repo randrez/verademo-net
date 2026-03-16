@@ -1,5 +1,3 @@
-name: Veracode IaC / Container Scan
-
 on:
   workflow_call:
     inputs:
@@ -17,82 +15,46 @@ on:
         required: false
         type: boolean
         default: true
+      tag:
+        required: false
+        type: string
 
 jobs:
-  iac-scan:
+  container-scan:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare scan source
+      - name: Instalar Veracode CLI y ejecutar scan
         run: |
-          if [ "${{ inputs.scan_type }}" = "image" ]; then
-            echo "Using image: ${{ inputs.scan_source }}"
-          else
-            echo "Using directory: ${{ inputs.scan_source }}"
-          fi
+          # Instalar Veracode CLI en un directorio local
+          mkdir -p veracode-cli
+          curl -fsS https://tools.veracode.com/veracode-cli/install | sh -s -- -d ./veracode-cli
 
-      - name: Install and Run Veracode CLI
+          # Ejecutar el scan según el tipo
+          if [ "${{ inputs.scan_type }}" = "image" ]; then
+            echo "Escaneando imagen Docker: ${{ inputs.scan_source }}:${{ inputs.tag }}"
+            ./veracode-cli/veracode scan \
+              --type image \
+              --source ${{ inputs.scan_source }}:${{ inputs.tag }} \
+              --format ${{ inputs.format_result }} \
+              --output cs_results_image.json
+          else
+            echo "Escaneando directorio: ${{ inputs.scan_source }}"
+            ./veracode-cli/veracode scan \
+              --type directory \
+              --source ${{ inputs.scan_source }} \
+              --format ${{ inputs.format_result }} \
+              --output cs_results_dir.json
+          fi
         env:
           VERACODE_API_KEY_ID: ${{ secrets.VERACODE_API_ID }}
           VERACODE_API_KEY_SECRET: ${{ secrets.VERACODE_API_KEY }}
-        run: |
-          echo "=== DEBUG: Current directory and environment ==="
-          echo "PWD: $PWD"
-          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
-          pwd
-          ls -la
-          echo "=== END DEBUG ==="
-          
-          # Set environment variables for Veracode CLI
-          export VERACODE_API_KEY_ID="$VERACODE_API_KEY_ID"
-          export VERACODE_API_KEY_SECRET="$VERACODE_API_KEY_SECRET"
-          
-          # Install Veracode CLI directly (downloads and runs in one step)
-          # The CLI will be installed to the current directory
-          curl -fsS https://tools.veracode.com/veracode-cli/install | sh
-          
-          # Debug: Check where veracode binary was installed
-          echo "=== Veracode CLI location ==="
-          find . -name "veracode*" -type f -executable 2>/dev/null || find . -name "veracode*" -type f 2>/dev/null
-          echo "=== End Veracode CLI location ==="
-          
-          # Find the veracode binary location
-          VERACODE_CLI=$(find . -name "veracode" -type f -executable 2>/dev/null | head -n 1)
-          if [ -z "$VERACODE_CLI" ]; then
-            VERACODE_CLI=$(find . -name "veracode" -type f 2>/dev/null | head -n 1)
-          fi
-          
-          if [ -n "$VERACODE_CLI" ]; then
-            echo "Found veracode binary at: $VERACODE_CLI"
-            ls -la "$VERACODE_CLI"
-            
-            # Run the scan using the found binary
-            echo "=== Running Veracode scan ==="
-            "$VERACODE_CLI" scan \
-              --source ${{ inputs.scan_source }} \
-              --type ${{ inputs.scan_type }} \
-              --format ${{ inputs.format_result }} \
-              --output results.txt
-          else
-            echo "ERROR: veracode binary not found"
-            exit 1
-          fi
 
-      - name: Rename scan results to safe artifact names
-        run: |
-          for f in results.* sbom_*; do
-            if [ -f "$f" ]; then
-              # Reemplaza espacios o caracteres especiales
-              safe_name=$(echo "$f" | tr '[:upper:] ' '[:lower:]_' | tr -cd '[:alnum:]_.')
-              mv "$f" "veracode_iac_${safe_name}"
-            fi
-          done
-
-      - name: Upload scan results
+      - name: Subir resultados como artifact
         uses: actions/upload-artifact@v4
         with:
-          name: veracode-iac-scan-results
-          path: veracode_iac_*
+          name: veracode-container-scan-results
+          path: cs_results_image.json
