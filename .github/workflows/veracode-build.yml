@@ -59,8 +59,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: |
-      startsWith(github.ref_name, 'feature') ||
-      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature'))
+      startsWith(github.ref_name, 'feature/') ||
+      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/'))
 
     permissions:
       contents: read
@@ -98,7 +98,7 @@ jobs:
 
   veracode-sandbox-feature:
     needs: build
-    if: startsWith(github.ref_name, 'feature/*')
+    if: startsWith(github.ref_name, 'feature/')
     uses: ./.github/workflows/veracode-sand-box.yml
     with:
       veracode_app_profile_name: 'verademo-net'
@@ -108,7 +108,7 @@ jobs:
 
   veracode-iac-scan:
     needs: build
-    if: startsWith(github.ref_name, 'feature/*')
+    if: startsWith(github.ref_name, 'feature/')
     uses: ./.github/workflows/veracode-iac-scan.yml
     with:
       scan_type: directory
@@ -129,8 +129,8 @@ jobs:
   veracode-policy-scan:
     needs: build
     if: |
-      startsWith(github.ref_name, 'develop') ||
-      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'develop'))
+       github.ref_name == 'develop' ||
+       (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'develop')
     uses: ./.github/workflows/veracode-policy-scan.yml
     with:
       veracode_app_profile_name: 'verademo-net'
