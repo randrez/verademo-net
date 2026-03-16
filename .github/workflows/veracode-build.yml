@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - feature/*
+      - develop
+      - main
 
   pull_request:
     branches:
@@ -11,10 +13,8 @@ on:
       - main
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,26 +27,22 @@ jobs:
       - name: Build and Publish
         run: |
           set -e
-
           echo "🔎 Searching for .csproj..."
           csproj_file=$(find . -name "*.csproj" -print -quit)
-
           if [ -z "$csproj_file" ]; then
             echo "::error::No .csproj file found"
             exit 1
           fi
-
           rm -rf veracode-upload app.zip
-
           dotnet publish "$csproj_file" -c Release -o ./veracode-upload --no-self-contained
-
-          ls -R ./veracode-upload
-
+          if [ -z "$(ls -A ./veracode-upload)" ]; then
+            echo "::error::Publish step did not produce output"
+            exit 1
+          fi
           cd veracode-upload
-          zip -r ../app.zip .
+          # Filtrar solo archivos .dll y comprimirlos
+          find . -name "*.dll" -print | zip -r ../app.zip -@
           cd ..
-
-          echo "ZIP created successfully"
           ls -lh app.zip
 
       - name: Upload package for log
@@ -59,9 +55,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: |
-      startsWith(github.ref_name, 'feature/') ||
-      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/'))
-
+      github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
     permissions:
       contents: read
       packages: write
@@ -84,53 +78,88 @@ jobs:
       - name: List images
         run: docker images
 
-  veracode-sandbox-feature-pr-develop:
+  veracode-pipeline-scan:
     needs: build
-    if: |
-      startsWith(github.ref_name, 'feature/') ||
-      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/'))
-    uses: ./.github/workflows/veracode-sand-box.yml
+    if: startsWith(github.ref_name, 'feature/')
+    uses: ./.github/workflows/veracode-pipeline-scan.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+      security-events: write
     with:
-      veracode_app_profile_name: 'verademo-net'
-      veracode_sandbox_name: 'feature-pr-develop-sandbox'
-      create_profile: true
-      create_sandbox: true
+      veracode_policy_name: 'Veracode Recommended Very High + SCA'
+      json_output: true
+      output_file: veracode-results.json
+      fail_build: true
+      verbose: true
 
   veracode-sandbox-feature:
     needs: build
     if: startsWith(github.ref_name, 'feature/')
     uses: ./.github/workflows/veracode-sand-box.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+      security-events: write
     with:
       veracode_app_profile_name: 'verademo-net'
       veracode_sandbox_name: 'feature-sandbox'
       create_profile: true
       create_sandbox: true
+      scan_timeout: 0
 
   veracode-iac-scan:
     needs: build
     if: startsWith(github.ref_name, 'feature/')
     uses: ./.github/workflows/veracode-iac-scan.yml
+    secrets: inherit
     with:
       scan_type: directory
       scan_source: ./
-      format_result: json
+      format_result: table
 
   veracode-iac-scan_image:
     needs: build-docker-image
     if: |
-      startsWith(github.ref_name, 'feature/') ||
-      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/'))
+      github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
     uses: ./.github/workflows/veracode-iac-scan.yml
+    secrets: inherit
     with:
       scan_type: image
       scan_source: ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }}
       format_result: table
 
+  veracode-sandbox-develop:
+    needs: build
+    if: |
+      github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
+    uses: ./.github/workflows/veracode-sand-box.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+      security-events: write
+    with:
+      veracode_app_profile_name: 'verademo-net'
+      veracode_sandbox_name: 'feature-develop-sandbox'
+      create_profile: true
+      create_sandbox: true
+
   veracode-policy-scan:
     needs: build
     if: |
-      startsWith(github.ref_name, 'develop') ||
-      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'develop'))
+       github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'develop'
     uses: ./.github/workflows/veracode-policy-scan.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+      security-events: write
     with:
       veracode_app_profile_name: 'verademo-net'

@@ -1,4 +1,4 @@
-name: Veracode policy scan
+name: Veracode pipeline scan
 
 permissions:
   contents: read
@@ -9,7 +9,7 @@ permissions:
 on:
   workflow_call:
     inputs:
-      VERACODE_APP_PROFILE_NAME:
+      veracode_policy_name:
         required: true
         type: string
       json_output:
@@ -30,7 +30,7 @@ on:
         default: true
         
 jobs:
-  sandbox-scan:
+  pipeline-scan:
     runs-on: ubuntu-latest
     steps:
 
@@ -61,4 +61,6 @@ jobs:
           json_output: ${{ inputs.json_output }}
           verbose: ${{ inputs.verbose }}
           json_output_file: ${{ inputs.output_file }}
+          veracode_policy_name: ${{ inputs.veracode_policy_name }}
           fail_build: ${{ inputs.fail_build }}
+         

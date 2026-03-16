@@ -19,7 +19,7 @@ on:
         default: true
 
 jobs:
-  veracode-scan:
+  iac-scan:
     runs-on: ubuntu-latest
 
     steps:
@@ -34,13 +34,58 @@ jobs:
             echo "Using directory: ${{ inputs.scan_source }}"
           fi
 
-      - name: Run Veracode scan
-        uses: veracode/container_iac_secrets_scanning@v1.0.1
+      - name: Install and Run Veracode CLI
+        run: |
+          echo "=== DEBUG: Current directory and environment ==="
+          echo "PWD: $PWD"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          pwd
+          ls -la
+          echo "=== END DEBUG ==="
+        
+          # Install Veracode CLI directly (downloads and runs in one step)
+          # The CLI will be installed to the current directory
+          curl -fsS https://tools.veracode.com/veracode-cli/install | sh
+          
+          # Debug: Check where veracode binary was installed
+          echo "=== Veracode CLI location ==="
+          find . -name "veracode*" -type f -executable 2>/dev/null || find . -name "veracode*" -type f 2>/dev/null
+          echo "=== End Veracode CLI location ==="
+          
+          # Find the veracode binary location
+          VERACODE_CLI=$(find . -name "veracode" -type f -executable 2>/dev/null | head -n 1)
+          if [ -z "$VERACODE_CLI" ]; then
+            VERACODE_CLI=$(find . -name "veracode" -type f 2>/dev/null | head -n 1)
+          fi
+          
+          if [ -n "$VERACODE_CLI" ]; then
+            echo "Found veracode binary at: $VERACODE_CLI"
+            ls -la "$VERACODE_CLI"
+            
+            # Run the scan using the found binary
+            echo "=== Running Veracode scan ==="
+            "$VERACODE_CLI" scan \
+              --source ${{ inputs.scan_source }} \
+              --type ${{ inputs.scan_type }} \
+              --format ${{ inputs.format_result }} \
+              --output results.txt
+          else
+            echo "ERROR: veracode binary not found"
+            exit 1
+          fi
+
+      - name: Rename scan results to safe artifact names
+        run: |
+          for f in results.* sbom_*; do
+            if [ -f "$f" ]; then
+              # Reemplaza espacios o caracteres especiales
+              safe_name=$(echo "$f" | tr '[:upper:] ' '[:lower:]_' | tr -cd '[:alnum:]_.')
+              mv "$f" "veracode_iac_${safe_name}"
+            fi
+          done
+
+      - name: Upload scan results
+        uses: actions/upload-artifact@v4
         with:
-          vid: ${{ secrets.VID }}
-          vkey: ${{ secrets.VKEY }}
-          command: scan
-          type: ${{ inputs.scan_type }}
-          source: ${{ inputs.scan_source }}
-          format: ${{ inputs.format_result }}
-          fail_build: ${{ inputs.fail_build }}
+          name: veracode-iac-scan-results
+          path: veracode_iac_*
