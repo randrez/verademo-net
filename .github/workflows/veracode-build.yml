@@ -119,7 +119,7 @@ jobs:
     with:
       scan_type: directory
       scan_source: ./
-      format_result: json
+      format_result: table
 
   veracode-iac-scan_image:
     needs: build-docker-image
