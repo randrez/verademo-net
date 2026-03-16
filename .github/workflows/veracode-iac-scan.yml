@@ -69,10 +69,6 @@ jobs:
             echo "Found veracode binary at: $VERACODE_CLI"
             ls -la "$VERACODE_CLI"
             
-            # Configure Veracode CLI with API credentials
-            echo "=== Configuring Veracode CLI with credentials ==="
-            "$VERACODE_CLI" configure --vid "$VERACODE_API_KEY_ID" --vkey "$VERACODE_API_KEY_SECRET"
-            
             # Run the scan using the found binary
             echo "=== Running Veracode scan ==="
             "$VERACODE_CLI" scan \
