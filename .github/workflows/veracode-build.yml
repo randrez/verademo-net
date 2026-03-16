@@ -87,8 +87,7 @@ jobs:
   veracode-sandbox-feature-pr-develop:
     needs: build
     if: |
-      startsWith(github.ref_name, 'feature/') ||
-      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/'))
+      github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
     uses: ./.github/workflows/veracode-sand-box.yml
     permissions:
       contents: read
@@ -128,8 +127,7 @@ jobs:
   veracode-iac-scan_image:
     needs: build-docker-image
     if: |
-      startsWith(github.ref_name, 'feature/') ||
-      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/'))
+      github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
     uses: ./.github/workflows/veracode-iac-scan.yml
     with:
       scan_type: image
@@ -139,8 +137,7 @@ jobs:
   veracode-policy-scan:
     needs: build
     if: |
-       github.ref_name == 'develop' ||
-       (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'develop')
+       github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'develop'
     uses: ./.github/workflows/veracode-policy-scan.yml
     permissions:
       contents: read
