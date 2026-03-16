@@ -142,5 +142,10 @@ jobs:
        github.ref_name == 'develop' ||
        (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'develop')
     uses: ./.github/workflows/veracode-policy-scan.yml
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+      security-events: write
     with:
       veracode_app_profile_name: 'verademo-net'
