@@ -42,7 +42,7 @@ jobs:
           pwd
           ls -la
           echo "=== END DEBUG ==="
-          
+        
           # Install Veracode CLI directly (downloads and runs in one step)
           # The CLI will be installed to the current directory
           curl -fsS https://tools.veracode.com/veracode-cli/install | sh
