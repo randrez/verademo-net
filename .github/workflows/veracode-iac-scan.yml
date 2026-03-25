@@ -59,4 +59,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: veracode-container-scan-results
-          path: cs_results_image.json
+          path: |
+            cs_results_image.json
+            cs_results_dir.json
