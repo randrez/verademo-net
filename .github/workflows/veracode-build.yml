@@ -19,72 +19,49 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 🔐 Instalar CLI
       - name: Install Veracode CLI
         run: curl -fsS https://tools.veracode.com/veracode-cli/install | sh
 
-      # 🔑 Credenciales
       - name: Set Veracode credentials
         run: |
           echo "VERACODE_API_KEY_ID=${{ secrets.VERACODE_API_ID }}" >> $GITHUB_ENV
           echo "VERACODE_API_KEY_SECRET=${{ secrets.VERACODE_API_KEY }}" >> $GITHUB_ENV
 
-      # 📦 Auto-Package desde el repo
       - name: Veracode Auto-Package
         run: |
           set -e
 
-          PROJECT_PATH="."
           OUTPUT_DIR="veracode-output"
-
-          mkdir -p $OUTPUT_DIR
+          mkdir -p "$OUTPUT_DIR"
 
           ./veracode package \
-            --source "$PROJECT_PATH" \
+            --source "." \
             --output "$OUTPUT_DIR" \
             --trust \
             --verbose
 
-          echo "📦 Generated artifacts:"
-          ls -lh $OUTPUT_DIR
+          echo "Generando el artefacto:"
+          ls -lh "$OUTPUT_DIR"
 
-          echo "🔍 Selecting best artifact..."
+          echo "Seleccion del mejor artefacto para el escaneo de Veracode..."
 
-          # 🔥 Prioridad 1: EXACTO dotnet (el correcto)
-          artifact=$(find $OUTPUT_DIR -name "*dotnet.zip" | head -n 1)
+          artifact=$(
+            ls -S "$OUTPUT_DIR"/*dotnet*.zip 2>/dev/null | grep -v "js" | head -n 1 ||
+            ls -S "$OUTPUT_DIR"/*.zip | grep -Ev "js|sql" | head -n 1 ||
+            ls -S "$OUTPUT_DIR"/*.zip | head -n 1
+          )
 
-          # 🔁 Prioridad 2: dotnet pero excluyendo js
-          if [ -z "$artifact" ]; then
-            artifact=$(find $OUTPUT_DIR -name "*dotnet*.zip" | grep -v "js" | head -n 1)
-          fi
-
-          # 🔁 Prioridad 3: app/api/web excluyendo js y sql
-          if [ -z "$artifact" ]; then
-            artifact=$(find $OUTPUT_DIR -name "*.zip" | grep -Ev "js|sql" | grep -E "app|api|web" | head -n 1)
-          fi
-
-          # 🆘 Prioridad final: el más grande
-          if [ -z "$artifact" ]; then
-            artifact=$(ls -S $OUTPUT_DIR/*.zip | head -n 1)
-          fi
-
-          if [ -z "$artifact" ]; then
-            echo "::error::No artifact found"
-            exit 1
-          fi
+          [ -z "$artifact" ] && { echo "::error::No artifact found"; exit 1; }
 
           echo "✅ Selected artifact: $artifact"
 
-          # 🔥 LIMPIEZA: borrar los demás zips
-          find $OUTPUT_DIR -name "*.zip" ! -path "$artifact" -delete
-
-          # 🔥 OPCIONAL PRO: nombre estándar
+          # Limpieza + estandarización
+          find "$OUTPUT_DIR" -name "*.zip" ! -path "$artifact" -delete
           mv "$artifact" "$OUTPUT_DIR/app.zip"
 
-          echo "📦 Final artifact:"
-          ls -lh $OUTPUT_DIR
+          echo "Artifact listo para Veracode:"
+          ls -lh "$OUTPUT_DIR"
       
-      # 📤 Subir artifact (clave para los otros jobs)
       - name: Upload package for Veracode
         uses: actions/upload-artifact@v4
         with:
