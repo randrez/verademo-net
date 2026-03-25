@@ -1,4 +1,4 @@
-name: veracode-build
+name: veracode-build-autopackage
 
 on:
   push:
