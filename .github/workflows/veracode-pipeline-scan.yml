@@ -58,7 +58,7 @@ jobs:
           vid: ${{ secrets.VERACODE_API_ID }}
           vkey: ${{ secrets.VERACODE_API_KEY }}
           file: ${{ steps.detect.outputs.artifact_path }}
-          json_output: ${{ inputs.json_output }}
+          json_output: true
           verbose: ${{ inputs.verbose }}
           json_output_file: ${{ inputs.output_file }}
           veracode_policy_name: ${{ inputs.veracode_policy_name }}
