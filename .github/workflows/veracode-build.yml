@@ -19,37 +19,39 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
+      # 🔐 Instalar CLI
+      - name: Install Veracode CLI
+        run: curl -fsS https://tools.veracode.com/veracode-cli/install | sh
 
-      - name: Build and Publish
+      # 🔑 Credenciales
+      - name: Set Veracode credentials
         run: |
-          set -e
-          echo "🔎 Searching for .csproj..."
-          csproj_file=$(find . -name "*.csproj" -print -quit)
-          if [ -z "$csproj_file" ]; then
-            echo "::error::No .csproj file found"
-            exit 1
-          fi
-          rm -rf veracode-upload app.zip
-          dotnet publish "$csproj_file" -c Release -o ./veracode-upload --no-self-contained
-          if [ -z "$(ls -A ./veracode-upload)" ]; then
-            echo "::error::Publish step did not produce output"
-            exit 1
-          fi
-          cd veracode-upload
-          # Filtrar solo archivos .dll y comprimirlos
-          find . -name "*.dll" -print | zip -r ../app.zip -@
-          cd ..
-          ls -lh app.zip
+          echo "VERACODE_API_KEY_ID=${{ secrets.VERACODE_API_ID }}" >> $GITHUB_ENV
+          echo "VERACODE_API_KEY_SECRET=${{ secrets.VERACODE_API_KEY }}" >> $GITHUB_ENV
 
-      - name: Upload package for log
+      # 📦 Auto-Package desde el repo
+      - name: Veracode Auto-Package
+        run: |
+          PROJECT_PATH="."
+          OUTPUT_DIR="veracode-output"
+
+          mkdir -p $OUTPUT_DIR
+
+          ./veracode package \
+            --source "$PROJECT_PATH" \
+            --output "$OUTPUT_DIR" \
+            --trust \
+            --verbose
+
+          echo "📦 Generated artifacts:"
+          ls -lh $OUTPUT_DIR
+
+      # 📤 Subir artifact (clave para los otros jobs)
+      - name: Upload package for Veracode
         uses: actions/upload-artifact@v4
         with:
           name: veracode-artifact
-          path: app.zip
+          path: veracode-output/*.zip
 
   build-docker-image:
     needs: build
@@ -153,7 +155,7 @@ jobs:
   veracode-policy-scan:
     needs: build
     if: |
-       github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'develop'
+      github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'develop'
     uses: ./.github/workflows/veracode-policy-scan.yml
     secrets: inherit
     permissions:
