@@ -136,8 +136,8 @@ jobs:
     secrets: inherit
     with:
       scan_type: directory
-      scan_source: ./
-      format_result: table
+      scan_source: .
+      format_result: json
 
   veracode-iac-scan_image:
     needs: build-docker-image

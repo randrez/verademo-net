@@ -29,21 +29,23 @@ jobs:
 
       - name: Instalar Veracode CLI y ejecutar scan
         run: |
-          # Instalar Veracode CLI en un directorio local
-          mkdir -p veracode-cli
-          curl -fsS https://tools.veracode.com/veracode-cli/install | sh -s -- -d ./veracode-cli
+          set -e
 
-          # Ejecutar el scan según el tipo
+          echo "📦 Instalando Veracode CLI..."
+          curl -fsS https://tools.veracode.com/veracode-cli/install | sh
+
+          echo "🔍 Ejecutando scan..."
+
           if [ "${{ inputs.scan_type }}" = "image" ]; then
             echo "Escaneando imagen Docker: ${{ inputs.scan_source }}:${{ inputs.tag }}"
-            ./veracode-cli/veracode scan \
+            ./veracode scan \
               --type image \
               --source ${{ inputs.scan_source }}:${{ inputs.tag }} \
               --format ${{ inputs.format_result }} \
               --output cs_results_image.json
           else
             echo "Escaneando directorio: ${{ inputs.scan_source }}"
-            ./veracode-cli/veracode scan \
+            ./veracode scan \
               --type directory \
               --source ${{ inputs.scan_source }} \
               --format ${{ inputs.format_result }} \
