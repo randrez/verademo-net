@@ -137,7 +137,7 @@ jobs:
     with:
       scan_type: directory
       scan_source: .
-      format_result: table
+      format_result: json
 
   veracode-iac-scan_image:
     needs: build-docker-image
@@ -148,7 +148,7 @@ jobs:
     with:
       scan_type: image
       scan_source: ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }}
-      format_result: table
+      format_result: json
 
   veracode-sandbox-develop:
     needs: build

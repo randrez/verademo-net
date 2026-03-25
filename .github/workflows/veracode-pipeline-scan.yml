@@ -64,3 +64,10 @@ jobs:
           veracode_policy_name: ${{ inputs.veracode_policy_name }}
           fail_build: ${{ inputs.fail_build }}
          
+      - name: Upload Veracode results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: veracode-pipeline-scan-results
+          path: ${{ inputs.output_file }}
+          if-no-files-found: warn
