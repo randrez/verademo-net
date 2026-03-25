@@ -32,6 +32,8 @@ jobs:
       # 📦 Auto-Package desde el repo
       - name: Veracode Auto-Package
         run: |
+          set -e
+
           PROJECT_PATH="."
           OUTPUT_DIR="veracode-output"
 
@@ -48,7 +50,7 @@ jobs:
 
           echo "🔍 Selecting best artifact..."
 
-          # 🔥 Prioridad 1: .NET (tu caso)
+          # 🔥 Prioridad 1: .NET
           artifact=$(find $OUTPUT_DIR -name "*dotnet*.zip" | head -n 1)
 
           # 🔁 Prioridad 2: nombres comunes
@@ -68,9 +70,15 @@ jobs:
 
           echo "✅ Selected artifact: $artifact"
 
-          # 👉 Exportar para el siguiente step
-          echo "artifact_path=$artifact" >> $GITHUB_OUTPUT
+          # 🔥 LIMPIEZA: borrar los demás zips
+          find $OUTPUT_DIR -name "*.zip" ! -path "$artifact" -delete
 
+          # 🔥 OPCIONAL PRO: nombre estándar
+          mv "$artifact" "$OUTPUT_DIR/app.zip"
+
+          echo "📦 Final artifact:"
+          ls -lh $OUTPUT_DIR
+      
       # 📤 Subir artifact (clave para los otros jobs)
       - name: Upload package for Veracode
         uses: actions/upload-artifact@v4
