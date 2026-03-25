@@ -46,6 +46,31 @@ jobs:
           echo "📦 Generated artifacts:"
           ls -lh $OUTPUT_DIR
 
+          echo "🔍 Selecting best artifact..."
+
+          # 🔥 Prioridad 1: .NET (tu caso)
+          artifact=$(find $OUTPUT_DIR -name "*dotnet*.zip" | head -n 1)
+
+          # 🔁 Prioridad 2: nombres comunes
+          if [ -z "$artifact" ]; then
+            artifact=$(find $OUTPUT_DIR -name "*.zip" | grep -E "app|api|web" | head -n 1)
+          fi
+
+          # 🆘 Prioridad 3: el más grande
+          if [ -z "$artifact" ]; then
+            artifact=$(ls -S $OUTPUT_DIR/*.zip | head -n 1)
+          fi
+
+          if [ -z "$artifact" ]; then
+            echo "::error::No artifact found"
+            exit 1
+          fi
+
+          echo "✅ Selected artifact: $artifact"
+
+          # 👉 Exportar para el siguiente step
+          echo "artifact_path=$artifact" >> $GITHUB_OUTPUT
+
       # 📤 Subir artifact (clave para los otros jobs)
       - name: Upload package for Veracode
         uses: actions/upload-artifact@v4
