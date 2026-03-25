@@ -19,17 +19,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 🔐 Instalar CLI
       - name: Install Veracode CLI
         run: curl -fsS https://tools.veracode.com/veracode-cli/install | sh
 
-      # 🔑 Credenciales
       - name: Set Veracode credentials
         run: |
           echo "VERACODE_API_KEY_ID=${{ secrets.VERACODE_API_ID }}" >> $GITHUB_ENV
           echo "VERACODE_API_KEY_SECRET=${{ secrets.VERACODE_API_KEY }}" >> $GITHUB_ENV
 
-      # 📦 Auto-Package desde el repo
       - name: Veracode Auto-Package
         run: |
           PROJECT_PATH="."
@@ -46,12 +43,34 @@ jobs:
           echo "📦 Generated artifacts:"
           ls -lh $OUTPUT_DIR
 
-      # 📤 Subir artifact (clave para los otros jobs)
+      # 🔥 SELECCIÓN PRO DEL ARTIFACT
+      - name: Select best Veracode artifact
+        id: select_artifact
+        run: |
+          echo "🔍 Searching for best artifact..."
+
+          # Intento 1: buscar por nombre típico (app/api/web)
+          artifact=$(find veracode-output -name "*.zip" | grep -E "app|api|web" | head -n 1)
+
+          # Intento 2: fallback al archivo más grande
+          if [ -z "$artifact" ]; then
+            echo "⚠️ No named artifact found, selecting largest..."
+            artifact=$(ls -S veracode-output/*.zip | head -n 1)
+          fi
+
+          if [ -z "$artifact" ]; then
+            echo "::error::No artifact found"
+            exit 1
+          fi
+
+          echo "✅ Selected artifact: $artifact"
+          echo "artifact_path=$artifact" >> $GITHUB_OUTPUT
+
       - name: Upload package for Veracode
         uses: actions/upload-artifact@v4
         with:
           name: veracode-artifact
-          path: veracode-output/*.zip
+          path: ${{ steps.select_artifact.outputs.artifact_path }}
 
   build-docker-image:
     needs: build
@@ -63,33 +82,22 @@ jobs:
       packages: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Login to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build Docker image
-        run: |
-          docker build -t ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }} .
+        run: docker build -t ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }} .
 
       - name: Push Docker image
-        run: |
-          docker push ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }}
-
-      - name: List images
-        run: docker images
+        run: docker push ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }}
 
   veracode-pipeline-scan:
     needs: build
     if: startsWith(github.ref_name, 'feature/')
     uses: ./.github/workflows/veracode-pipeline-scan.yml
     secrets: inherit
-    permissions:
-      contents: read
-      actions: read
-      issues: write
-      security-events: write
     with:
       veracode_policy_name: 'Veracode Recommended Very High + SCA'
       json_output: true
@@ -102,11 +110,6 @@ jobs:
     if: startsWith(github.ref_name, 'feature/')
     uses: ./.github/workflows/veracode-sand-box.yml
     secrets: inherit
-    permissions:
-      contents: read
-      actions: read
-      issues: write
-      security-events: write
     with:
       veracode_app_profile_name: 'verademo-net'
       veracode_sandbox_name: 'feature-sandbox'
@@ -121,7 +124,7 @@ jobs:
     secrets: inherit
     with:
       scan_type: directory
-      scan_source: ./
+      scan_source: .
       format_result: table
 
   veracode-iac-scan_image:
@@ -141,11 +144,6 @@ jobs:
       github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
     uses: ./.github/workflows/veracode-sand-box.yml
     secrets: inherit
-    permissions:
-      contents: read
-      actions: read
-      issues: write
-      security-events: write
     with:
       veracode_app_profile_name: 'verademo-net'
       veracode_sandbox_name: 'feature-develop-sandbox'
@@ -158,10 +156,5 @@ jobs:
       github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'develop'
     uses: ./.github/workflows/veracode-policy-scan.yml
     secrets: inherit
-    permissions:
-      contents: read
-      actions: read
-      issues: write
-      security-events: write
     with:
       veracode_app_profile_name: 'verademo-net'
