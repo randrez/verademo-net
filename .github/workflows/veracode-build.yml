@@ -15,27 +15,35 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      artifact_path: ${{ steps.autopackage.outputs.artifact_path }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 🔐 Instalar CLI
       - name: Install Veracode CLI
         run: curl -fsS https://tools.veracode.com/veracode-cli/install | sh
 
+      # 🔑 Credenciales
       - name: Set Veracode credentials
         run: |
           echo "VERACODE_API_KEY_ID=${{ secrets.VERACODE_API_ID }}" >> $GITHUB_ENV
           echo "VERACODE_API_KEY_SECRET=${{ secrets.VERACODE_API_KEY }}" >> $GITHUB_ENV
 
+      # 🔥 Auto-Package + selección PRO
       - name: Veracode Auto-Package
+        id: autopackage
         run: |
-          PROJECT_PATH="."
-          OUTPUT_DIR="veracode-output"
+          set -e
 
+          OUTPUT_DIR="veracode-output"
           mkdir -p $OUTPUT_DIR
 
+          echo "🚀 Running Veracode Auto-Package..."
           ./veracode package \
-            --source "$PROJECT_PATH" \
+            --source "." \
             --output "$OUTPUT_DIR" \
             --trust \
             --verbose
@@ -43,19 +51,15 @@ jobs:
           echo "📦 Generated artifacts:"
           ls -lh $OUTPUT_DIR
 
-      # 🔥 SELECCIÓN PRO DEL ARTIFACT
-      - name: Select best Veracode artifact
-        id: select_artifact
-        run: |
-          echo "🔍 Searching for best artifact..."
+          echo "🔍 Selecting best artifact..."
 
-          # Intento 1: buscar por nombre típico (app/api/web)
-          artifact=$(find veracode-output -name "*.zip" | grep -E "app|api|web" | head -n 1)
+          # 1. Buscar nombres típicos
+          artifact=$(find $OUTPUT_DIR -name "*.zip" | grep -E "app|api|web" | head -n 1)
 
-          # Intento 2: fallback al archivo más grande
+          # 2. Fallback al más grande
           if [ -z "$artifact" ]; then
             echo "⚠️ No named artifact found, selecting largest..."
-            artifact=$(ls -S veracode-output/*.zip | head -n 1)
+            artifact=$(ls -S $OUTPUT_DIR/*.zip | head -n 1)
           fi
 
           if [ -z "$artifact" ]; then
@@ -66,17 +70,21 @@ jobs:
           echo "✅ Selected artifact: $artifact"
           echo "artifact_path=$artifact" >> $GITHUB_OUTPUT
 
-      - name: Upload package for Veracode
+      # 📤 Subir SOLO el artifact correcto
+      - name: Upload package
         uses: actions/upload-artifact@v4
         with:
           name: veracode-artifact
-          path: ${{ steps.select_artifact.outputs.artifact_path }}
+          path: ${{ steps.autopackage.outputs.artifact_path }}
 
+  # 🐳 Docker (solo PR feature → develop)
   build-docker-image:
     needs: build
     runs-on: ubuntu-latest
     if: |
-      github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
+      github.event_name == 'pull_request' &&
+      startsWith(github.event.pull_request.head.ref, 'feature/') &&
+      github.event.pull_request.base.ref == 'develop'
     permissions:
       contents: read
       packages: write
@@ -87,12 +95,13 @@ jobs:
       - name: Login to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Build Docker image
-        run: docker build -t ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }} .
+      - name: Build & Push Docker image
+        run: |
+          IMAGE=ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }}
+          docker build -t $IMAGE .
+          docker push $IMAGE
 
-      - name: Push Docker image
-        run: docker push ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }}
-
+  # 🔐 Pipeline Scan (rápido)
   veracode-pipeline-scan:
     needs: build
     if: startsWith(github.ref_name, 'feature/')
@@ -105,6 +114,7 @@ jobs:
       fail_build: false
       verbose: true
 
+  # 🧪 Sandbox feature
   veracode-sandbox-feature:
     needs: build
     if: startsWith(github.ref_name, 'feature/')
@@ -112,11 +122,12 @@ jobs:
     secrets: inherit
     with:
       veracode_app_profile_name: 'verademo-net'
-      veracode_sandbox_name: 'feature-sandbox'
+      veracode_sandbox_name: ${{ github.ref_name }}-sandbox
       create_profile: true
       create_sandbox: true
       scan_timeout: 0
 
+  # 🏗️ IaC scan (repo)
   veracode-iac-scan:
     needs: build
     if: startsWith(github.ref_name, 'feature/')
@@ -127,10 +138,12 @@ jobs:
       scan_source: .
       format_result: table
 
+  # 🐳 IaC scan imagen
   veracode-iac-scan_image:
     needs: build-docker-image
     if: |
-      github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
+      github.event_name == 'pull_request' &&
+      startsWith(github.event.pull_request.head.ref, 'feature/')
     uses: ./.github/workflows/veracode-iac-scan.yml
     secrets: inherit
     with:
@@ -138,22 +151,12 @@ jobs:
       scan_source: ghcr.io/${{ github.repository }}/verademo-net:${{ github.sha }}
       format_result: table
 
-  veracode-sandbox-develop:
-    needs: build
-    if: |
-      github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
-    uses: ./.github/workflows/veracode-sand-box.yml
-    secrets: inherit
-    with:
-      veracode_app_profile_name: 'verademo-net'
-      veracode_sandbox_name: 'feature-develop-sandbox'
-      create_profile: true
-      create_sandbox: true
-
+  # 🔐 Policy Scan (solo PR hacia develop)
   veracode-policy-scan:
     needs: build
     if: |
-      github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'develop'
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.base.ref == 'develop'
     uses: ./.github/workflows/veracode-policy-scan.yml
     secrets: inherit
     with:
