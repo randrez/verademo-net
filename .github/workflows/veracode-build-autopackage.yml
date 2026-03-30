@@ -14,54 +14,65 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+ 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+ 
       - name: Install Veracode CLI
-        run: curl -fsS https://tools.veracode.com/veracode-cli/install | sh
-
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://tools.veracode.com/veracode-cli/install" -OutFile "install.ps1"
+          powershell -ExecutionPolicy Bypass -File .\install.ps1
+ 
       - name: Set Veracode credentials
+        shell: pwsh
         run: |
-          echo "VERACODE_API_KEY_ID=${{ secrets.VERACODE_API_ID }}" >> $GITHUB_ENV
-          echo "VERACODE_API_KEY_SECRET=${{ secrets.VERACODE_API_KEY }}" >> $GITHUB_ENV
-
+          Add-Content $env:GITHUB_ENV "VERACODE_API_KEY_ID=${{ secrets.VERACODE_API_ID }}"
+          Add-Content $env:GITHUB_ENV "VERACODE_API_KEY_SECRET=${{ secrets.VERACODE_API_KEY }}"
+ 
       - name: Veracode Auto-Package
+        shell: pwsh
         run: |
-          set -e
-
-          OUTPUT_DIR="veracode-output"
-          mkdir -p "$OUTPUT_DIR"
-
-          ./veracode package \
-            --source "." \
-            --output "$OUTPUT_DIR" \
-            --trust \
+          $ErrorActionPreference = "Stop"
+ 
+          $outputDir = "veracode-output"
+          New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
+ 
+          & .\veracode package `
+            --source "." `
+            --output $outputDir `
+            --trust `
             --verbose
-
-          echo "Generando el artefacto:"
-          ls -lh "$OUTPUT_DIR"
-
-          echo "Seleccion del mejor artefacto para el escaneo de Veracode..."
-
-          artifact=$(
-            ls -S "$OUTPUT_DIR"/*dotnet*.zip 2>/dev/null | grep -v "js" | head -n 1 ||
-            ls -S "$OUTPUT_DIR"/*.zip | grep -Ev "js|sql" | head -n 1 ||
-            ls -S "$OUTPUT_DIR"/*.zip | head -n 1
-          )
-
-          [ -z "$artifact" ] && { echo "::error::No artifact found"; exit 1; }
-
-          echo "✅ Selected artifact: $artifact"
-
+ 
+          Write-Host "Generando el artefacto:"
+          Get-ChildItem $outputDir | Format-Table Name, Length
+ 
+          Write-Host "Seleccion del mejor artefacto para el escaneo de Veracode..."
+ 
+          $artifact = Get-ChildItem $outputDir -Filter "*.zip" |
+            Where-Object { $_.Name -notmatch "js|sql" } |
+            Sort-Object Length -Descending |
+            Select-Object -First 1
+ 
+          if (-not $artifact) {
+            Write-Error "No artifact found"
+            exit 1
+          }
+ 
+          Write-Host "✅ Selected artifact: $($artifact.FullName)"
+ 
           # Limpieza + estandarización
-          find "$OUTPUT_DIR" -name "*.zip" ! -path "$artifact" -delete
-          mv "$artifact" "$OUTPUT_DIR/app.zip"
-
-          echo "Artifact listo para Veracode:"
-          ls -lh "$OUTPUT_DIR"
-      
+          Get-ChildItem $outputDir -Filter "*.zip" |
+            Where-Object { $_.FullName -ne $artifact.FullName } |
+            Remove-Item -Force
+ 
+          Rename-Item $artifact.FullName "$outputDir/app.zip"
+ 
+          Write-Host "Artifact listo para Veracode:"
+          Get-ChildItem $outputDir | Format-Table Name, Length
+ 
       - name: Upload package for Veracode
         uses: actions/upload-artifact@v4
         with:
