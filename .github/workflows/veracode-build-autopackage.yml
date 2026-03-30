@@ -21,10 +21,9 @@ jobs:
         uses: actions/checkout@v4
  
       - name: Install Veracode CLI
-        shell: pwsh
+        shell: bash
         run: |
-          Invoke-WebRequest -Uri "https://tools.veracode.com/veracode-cli/install" -OutFile "install.ps1"
-          powershell -ExecutionPolicy Bypass -File .\install.ps1
+          curl -fsS https://tools.veracode.com/veracode-cli/install | sh
  
       - name: Set Veracode credentials
         shell: pwsh
