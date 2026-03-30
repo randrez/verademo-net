@@ -20,10 +20,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
  
-      - name: Install Veracode CLI
-        shell: bash
+      - name: Install Veracode CLI via WSL
+        shell: pwsh
         run: |
-          curl -fsS https://tools.veracode.com/veracode-cli/install | sh
+          wsl bash -c "curl -fsS https://tools.veracode.com/veracode-cli/install | sh"
  
       - name: Set Veracode credentials
         shell: pwsh
