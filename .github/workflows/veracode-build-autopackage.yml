@@ -3,14 +3,11 @@ name: veracode-build-autopackage
 on:
   push:
     branches:
-      - feature/*
-      - develop
-      - main
+      - other
 
   pull_request:
     branches:
-      - develop
-      - main
+      - other
 
 jobs:
   build:
