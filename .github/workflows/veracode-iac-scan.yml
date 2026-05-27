@@ -18,6 +18,10 @@ on:
       tag:
         required: false
         type: string
+      policy_name:
+        required: false
+        type: string
+        default: ''
 
 jobs:
   container-scan:
@@ -31,29 +35,79 @@ jobs:
         if: ${{ inputs.scan_type == 'image' }}
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Instalar Veracode CLI y ejecutar scan
+      - name: Instalar Veracode CLI, descargar política (opcional) y ejecutar scan
         run: |
           set -e
 
           echo "📦 Instalando Veracode CLI..."
           curl -fsS https://tools.veracode.com/veracode-cli/install | sh
 
+          # Descargar política con reintentos si se especificó
+          POLICY_FILE=""
+          if [ -n "${{ inputs.policy_name }}" ]; then
+            echo "📥 Descargando política: ${{ inputs.policy_name }}"
+            MAX_RETRIES=5
+            COUNT=0
+
+            # Limpiar archivo anterior por si acaso
+            rm -f "${{ inputs.policy_name }}.rego"
+
+            while [ $COUNT -lt $MAX_RETRIES ]; do
+              echo "Intento $((COUNT+1))..."
+
+              ./veracode policy get "${{ inputs.policy_name }}" --format rego
+
+              if [ -s "${{ inputs.policy_name }}.rego" ]; then
+                echo "✅ Política descargada correctamente"
+                break
+              fi
+
+              COUNT=$((COUNT+1))
+              sleep 5
+            done
+
+            if [ ! -s "${{ inputs.policy_name }}.rego" ]; then
+              echo "❌ No se pudo descargar la política después de $MAX_RETRIES intentos"
+              exit 1
+            fi
+
+            POLICY_FILE="${{ inputs.policy_name }}.rego"
+          fi
+
           echo "🔍 Ejecutando scan..."
 
           if [ "${{ inputs.scan_type }}" = "image" ]; then
             echo "Escaneando imagen Docker: ${{ inputs.scan_source }}:${{ inputs.tag }}"
-            ./veracode scan \
-              --type image \
-              --source ${{ inputs.scan_source }}:${{ inputs.tag }} \
-              --format ${{ inputs.format_result }} \
-              --output cs_results_image.json
+            if [ -n "$POLICY_FILE" ]; then
+              ./veracode scan \
+                --type image \
+                --source ${{ inputs.scan_source }}:${{ inputs.tag }} \
+                --policy "$POLICY_FILE" \
+                --format ${{ inputs.format_result }} \
+                --output cs_results_image.json
+            else
+              ./veracode scan \
+                --type image \
+                --source ${{ inputs.scan_source }}:${{ inputs.tag }} \
+                --format ${{ inputs.format_result }} \
+                --output cs_results_image.json
+            fi
           else
             echo "Escaneando directorio: ${{ inputs.scan_source }}"
-            ./veracode scan \
-              --type directory \
-              --source ${{ inputs.scan_source }} \
-              --format ${{ inputs.format_result }} \
-              --output cs_results_dir.json
+            if [ -n "$POLICY_FILE" ]; then
+              ./veracode scan \
+                --type directory \
+                --source ${{ inputs.scan_source }} \
+                --policy "$POLICY_FILE" \
+                --format ${{ inputs.format_result }} \
+                --output cs_results_dir.json
+            else
+              ./veracode scan \
+                --type directory \
+                --source ${{ inputs.scan_source }} \
+                --format ${{ inputs.format_result }} \
+                --output cs_results_dir.json
+            fi
           fi
         env:
           VERACODE_API_KEY_ID: ${{ secrets.VERACODE_API_ID }}
@@ -61,6 +115,7 @@ jobs:
 
       - name: Subir resultados como artifact
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: veracode-container-scan-results
           path: |

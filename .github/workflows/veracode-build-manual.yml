@@ -138,6 +138,7 @@ jobs:
       scan_source: ghcr.io/${{ github.repository }}/verademo-net 
       tag: ${{ github.sha }} 
       format_result: json
+      policy_name: 'scan-container'
 
   veracode-sandbox-develop:
     needs: build
