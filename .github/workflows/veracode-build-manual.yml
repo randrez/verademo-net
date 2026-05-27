@@ -34,7 +34,7 @@ jobs:
             exit 1
           fi
           rm -rf veracode-upload app.zip
-          dotnet publish "$csproj_file" -c Release -o ./veracode-upload --no-self-contained
+          dotnet publish "$csproj_file" -c Debug -o ./veracode-upload --no-self-contained
           if [ -z "$(ls -A ./veracode-upload)" ]; then
             echo "::error::Publish step did not produce output"
             exit 1
@@ -54,8 +54,7 @@ jobs:
   build-docker-image:
     needs: build
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
+    if: startsWith(github.ref_name, 'feature/')
     permissions:
       contents: read
       packages: write
@@ -115,7 +114,8 @@ jobs:
 
   veracode-iac-scan:
     needs: build
-    if: startsWith(github.ref_name, 'feature/')
+    if: |
+      github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
     uses: ./.github/workflows/veracode-iac-scan.yml
     secrets: inherit
     with:
@@ -125,8 +125,7 @@ jobs:
 
   veracode-iac-scan_image:
     needs: build-docker-image
-    if: |
-      github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feature/')
+    if: startsWith(github.ref_name, 'feature/')
     uses: ./.github/workflows/veracode-iac-scan.yml
     secrets: inherit
     with:
