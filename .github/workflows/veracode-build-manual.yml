@@ -128,6 +128,8 @@ jobs:
     if: startsWith(github.ref_name, 'feature/')
     uses: ./.github/workflows/veracode-iac-scan.yml
     secrets: inherit
+    permissions:
+      packages: read
     with:
       scan_type: image
       scan_source: ghcr.io/${{ github.repository }}/verademo-net 
