@@ -51,6 +51,7 @@ jobs:
           name: veracode-artifact
           path: app.zip
 
+  #Construccion de imagen de contenedor para escaneo de seguridad, solo para ramas feature/*, y subiendo la imagen a GHCR para su posterior uso en el escaneo de seguridad de contenedores
   build-docker-image:
     needs: build
     runs-on: ubuntu-latest
@@ -112,6 +113,8 @@ jobs:
       create_sandbox: true
       scan_timeout: 0
 
+      
+  #Escaneo de IaC tipo directory, descargando inicialmente la politica
   veracode-iac-scan:
     needs: build
     if: |
@@ -125,6 +128,7 @@ jobs:
       scan_source: .
       format_result: json
 
+  #Escaneo de imagenes de contenedores, descargando la politica inicialmente
   veracode-iac-scan_image:
     needs: build-docker-image
     if: startsWith(github.ref_name, 'feature/')

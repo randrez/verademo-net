@@ -1,61 +1,122 @@
 # VeraDemo NET - Blab-a-Gag
-test
+
+Blab-a-Gag is a forum-style demo application built on `.NET 8` where users can publish one-line jokes, follow other users, and comment on posts.
+
 ## About
 
-Blab-a-Gag is a fairly simple forum type application which allows:
-* Users can post a one-liner joke.
-* Users can follow the jokes of other users or not (listen or ignore).
-* Users can comment on other users messages (heckle).
+The application allows:
 
-It is based around .NET 8
+- Users to post a one-liner joke.
+- Users to follow or ignore other users.
+- Users to comment on other users' messages.
 
-For other variations, please consider:
+Related projects:
 
-[VeraDemo.NET](https://github.com/veracode/verademo-dotnet) (.NET Framework)
+- [VeraDemo.NET](https://github.com/veracode/verademo-dotnet) (.NET Framework)
+- [VeraDemo.NET Core](https://github.com/veracode/verademo-dotnetcore/) (.NET Core 3.1)
 
-[VeraDemo.NET Core](https://github.com/veracode/verademo-dotnetcore/) (.NET Core 3.1)
+## Application URLs
 
-### URLs
+- `/feed` shows jokes and heckles relevant to the current user.
+- `/blabbers` shows all other users and allows the current user to listen or ignore.
+- `/profile` allows the current user to modify their profile.
+- `/login` allows users to sign in.
+- `/register` allows users to create an account.
+- `/tools` shows a tools page with a fortune feature and host ping feature.
 
-* `/feed` shows the jokes/heckles that are relevant to the current user.
-* `/blabbers` shows a list of all other users and allows the current user to listen or ignore.
-* `/profile` allows the current user to modify their profile.
-* `/login` allows you to log in to your account
-* `/register` allows you to create a new user account
-* `/tools` shows a tools page that shows a fortune or lets you ping a host.
- 
 ## Run
 
-If you don't already have Docker this is a prerequisite.
+Docker is required.
 
-```
+```bash
 docker run --rm -it -p 127.0.0.1:8080:8080 antfie/verademo-net
 ```
 
-Navigate to: http://127.0.0.1:8080.
-
-## Exploitation Demos
-
-See the `docs` folder.
+Then open `http://127.0.0.1:8080`.
 
 ## Technologies Used
 
-* ASP.NET MVC on .NET 8.0
-* Sql Server 2022 Express
+- ASP.NET MVC on .NET 8.0
+- SQL Server 2022 Express
+- Docker
+- GitHub Actions
+- Veracode
 
 ## Development
 
-To build the container run this:
-```
+To build the container locally:
+
+```bash
 docker pull mcr.microsoft.com/mssql/server:2022-CU12-ubuntu-22.04
 docker build --no-cache -t verademo-dotnet .
 ```
 
-To run the container for local development run this:
-```
+To run the container for local development:
+
+```bash
 docker run --rm -it -p 127.0.0.1:8080:8080 --entrypoint bash -v "$(pwd)/app:/app" verademo-dotnet
 ```
 
-You will then need to manually run the two commands within `/entrypoint.sh`. The first starts the DB in the background whereas the second compiles and runs the application. Typically a container shouldn't have multiple services but this was done for convenience.
+After the container starts, run the commands defined in `/entrypoint.sh` manually. One command starts the database in the background and the other compiles and runs the application.
 
-t
+## GitHub Actions Pipelines
+
+This repository includes GitHub Actions workflows to build the application artifact, build a container image, and run several Veracode security scans.
+
+### Main Workflows
+
+- `.github/workflows/veracode-build-manual.yml`
+  Builds and publishes the `.NET` application, packages the generated `.dll` files into `app.zip`, uploads the artifact, and orchestrates the security workflows for `feature/*`, `develop`, and `main` branches.
+
+- `.github/workflows/veracode-build-autopackage.yml`
+  Uses the Veracode CLI auto-package feature to generate a deployable package from source code, uploads the generated zip artifact, and triggers downstream security scans for the configured branch and pull request flow.
+
+### Reusable Security Workflows
+
+- `.github/workflows/veracode-pipeline-scan.yml`
+  Runs a Veracode Pipeline Scan against the generated application artifact and uploads the JSON results as a workflow artifact.
+
+- `.github/workflows/veracode-sand-box.yml`
+  Uploads the generated artifact to Veracode and runs a Sandbox Scan using the configured application profile and sandbox name.
+
+- `.github/workflows/veracode-policy-scan.yml`
+  Uploads the artifact to Veracode and performs a policy-based scan intended for pull requests targeting `develop`.
+
+- `.github/workflows/veracode-iac-scan.yml`
+  Uses the Veracode CLI to scan either a source directory or a container image. It supports optional policy download and uploads the scan results as artifacts.
+
+- `.github/workflows/veracode-sca-scan.yml`
+  Runs Veracode SCA to analyze third-party dependencies and can create issues or PR annotations depending on configuration.
+
+### Pipeline Behavior
+
+- `veracode-build-manual.yml`
+  Triggered on pushes to `feature/*`, `develop`, and `main`, and on pull requests targeting `develop` or `main`.
+
+- `veracode-build-autopackage.yml`
+  Triggered on pushes and pull requests for the `other` branch.
+
+- Feature branches trigger:
+  Pipeline Scan, Sandbox Scan, Docker image build, and container or directory IaC scanning depending on the event type.
+
+- Pull requests from `feature/*` into `develop` trigger:
+  Additional sandbox scanning and policy scanning.
+
+### Generated Artifacts
+
+- `app.zip` or auto-packaged zip artifact for Veracode static analysis.
+- Container image published to `ghcr.io/<owner>/<repo>/verademo-net:<sha>` when the workflow builds a Docker image.
+- JSON result files generated by Pipeline Scan and IaC scan workflows.
+
+### Required Secrets
+
+The workflows rely on these GitHub repository secrets:
+
+- `VERACODE_API_ID`
+- `VERACODE_API_KEY`
+- `VERACODE_AGENT_TOKEN`
+- `GITHUB_TOKEN`
+
+## Exploitation Demos
+
+See the `docs` folder.
